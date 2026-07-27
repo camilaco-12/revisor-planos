@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Temporales de Office / Excel
+~$*.xlsx
+*.tmp
+
+# Salidas de trabajo (no versionar hallazgos reales de proyectos)
+/salidas/
+hallazgos_*.json
+!templates/hallazgos_hidrosanitario.xlsx
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini

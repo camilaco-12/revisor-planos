@@ -1,0 +1,20 @@
+{
+  "name": "revisores-ingenieria",
+  "owner": {
+    "name": "Camila",
+    "email": "ycclavijoo@ufpso.edu.co",
+    "url": "https://github.com/camilaco-12"
+  },
+  "metadata": {
+    "description": "Marketplace de agentes revisores de planos de ingeniería.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "revisor-planos",
+      "source": "./",
+      "description": "Agente revisor técnico de planos hidrosanitarios que identifica hallazgos y los registra en Excel.",
+      "version": "0.1.0"
+    }
+  ]
+}
