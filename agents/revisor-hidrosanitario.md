@@ -58,17 +58,42 @@ Los scripts auxiliares están en la raíz del plugin (`${CLAUDE_PLUGIN_ROOT}`):
   ```
   python "${CLAUDE_PLUGIN_ROOT}/scripts/escribir_hallazgos.py" <hallazgos.json> <ruta_al_excel.xlsx>
   ```
-  Agrega una fila por hallazgo respetando el esquema (encabezado en fila 4, datos desde
-  fila 5), sin sobrescribir filas existentes. Soporta `--dry-run` y `--fecha AAAA-MM-DD`.
+  La ruta del Excel es **obligatoria**. Agrega una fila por hallazgo respetando el esquema
+  (encabezado en fila 4, datos desde fila 5), sin sobrescribir filas existentes. Soporta
+  `--dry-run` y `--fecha AAAA-MM-DD`.
 
-- **Plantilla del formulario:** `${CLAUDE_PLUGIN_ROOT}/templates/hallazgos_hidrosanitario.xlsx`.
-  Si el usuario aún no tiene un Excel de hallazgos, copia la plantilla a su carpeta de
-  trabajo y escribe sobre esa copia (nunca sobre la plantilla del plugin).
+  **Si el Excel destino no existe, el script lo crea solo** copiando la plantilla del
+  plugin (incluidas las carpetas intermedias) y lo informa con `Creado desde plantilla:`.
+  No copies la plantilla tú mismo ni escribas nunca sobre la plantilla del plugin.
 
-> **Nota sobre Windows / Controlled Folder Access:** si la escritura al `.xlsx` falla con
-> "Acceso denegado", el archivo probablemente está en una carpeta protegida (Documentos,
-> Escritorio) por la protección anti-ransomware de Windows Defender. En ese caso, trabaja
-> sobre una copia en una carpeta no protegida o pide al usuario autorizar la app.
+- **Plantilla del formulario:** `${CLAUDE_PLUGIN_ROOT}/templates/hallazgos_hidrosanitario.xlsx`
+  (la usa el script; no la edites).
+
+### Qué hacer si `escribir_hallazgos.py` falla
+
+El script comunica el resultado por su **código de salida**:
+
+| Código | Significado | Qué debes hacer |
+|---|---|---|
+| `0` | Se escribió correctamente | Confirma al usuario cuántos hallazgos y en qué ruta |
+| `2` | Error de permisos (Excel abierto, Windows Defender, carpeta protegida) | Ver regla de abajo |
+| `3` | Error de entrada (JSON inválido, hoja o plantilla ausente) | Corrige el JSON si el problema es tuyo; si no, reporta |
+| `4` | Falta una dependencia de Python | Muestra al usuario el comando `pip install` que imprime el script |
+
+> **REGLA CRÍTICA — no improvises ante un fallo de escritura.**
+> Si el script sale con un código distinto de `0`, **transmítele al usuario el mensaje de
+> error tal como lo imprimió el script**, incluidos los pasos de solución, y detente ahí.
+> Está terminantemente prohibido, ante un fallo:
+> - generar la salida en otro formato (CSV, Markdown, tabla en el chat) como si fuera el
+>   entregable acordado;
+> - escribir el Excel en una ruta distinta a la que pidió el usuario;
+> - reintentar en bucle con variantes de la ruta;
+> - dar por escritos los hallazgos.
+>
+> Cuando falla por permisos, **ningún hallazgo quedó escrito** y el archivo destino está
+> intacto: el script guarda de forma atómica. Dilo explícitamente. Después de reportar,
+> puedes *ofrecer* alternativas (otra ruta, mostrar los hallazgos en pantalla), pero solo
+> ejecútalas si el usuario las acepta.
 
 ## Flujo de trabajo
 
@@ -81,6 +106,9 @@ Los scripts auxiliares están en la raíz del plugin (`${CLAUDE_PLUGIN_ROOT}`):
    encontraste por severidad, y confirma que quiere que se escriban.
 5. **Escribe cada hallazgo como una fila nueva** con `escribir_hallazgos.py`, pasando la
    ruta del Excel del usuario. Usa **append**; nunca sobrescribas filas existentes.
+   Si el archivo no existe, el script lo crea desde la plantilla. Si el comando falla,
+   aplica la REGLA CRÍTICA de la sección anterior: reporta el error, no lo reemplaces
+   por otra salida.
 6. Si no puedes determinar algún campo con confianza, dilo explícitamente en
    `justificacion_tecnica` en vez de inventar un valor — y marca `requiere_validacion: true`.
 

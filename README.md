@@ -24,7 +24,9 @@ Barichara – Santander): 12 hallazgos registrados en el formulario.
 | `agents/revisor-hidrosanitario.md` | Agente revisor senior de planos hidrosanitarios (Colombia). |
 | `commands/revisar-hidrosanitario.md` | Comando `/revisar-hidrosanitario` que dispara el flujo. |
 | `scripts/extraer_memorias.py` | Extrae texto de PDFs largos (memorias de cálculo) con PyMuPDF. |
-| `scripts/escribir_hallazgos.py` | Escribe los hallazgos en el Excel (append) con openpyxl. |
+| `scripts/escribir_hallazgos.py` | Escribe los hallazgos en el Excel (append) con openpyxl; crea el archivo desde la plantilla si no existe. |
+| `scripts/verificar_dependencias.py` | Avisa si faltan `pymupdf` u `openpyxl`. |
+| `hooks/hooks.json` | Hook `SessionStart` que ejecuta la verificación de dependencias. |
 | `templates/hallazgos_hidrosanitario.xlsx` | Plantilla del formulario de hallazgos. |
 
 ## Requisitos
@@ -34,6 +36,15 @@ Barichara – Santander): 12 hallazgos registrados en el formulario.
   ```bash
   pip install pymupdf openpyxl
   ```
+
+Al iniciar cada sesión, el plugin verifica que ambas estén instaladas y, si falta alguna,
+imprime el comando exacto de instalación para tu intérprete de Python. **El plugin nunca
+instala nada por su cuenta**: la instalación siempre la decides tú. Puedes ejecutar la
+verificación a mano:
+
+```bash
+python scripts/verificar_dependencias.py
+```
 
 ## Instalación como plugin
 
@@ -55,7 +66,8 @@ O, para desarrollo local, agrega la carpeta como marketplace:
 
 ## Uso
 
-1. Ten a mano los planos (PDF/imagen) y un Excel destino (o usa la plantilla incluida).
+1. Ten a mano los planos (PDF/imagen). No necesitas crear el Excel: si la ruta destino no
+   existe, se genera automáticamente a partir de la plantilla incluida.
 2. Ejecuta el comando:
    ```
    /revisar-hidrosanitario  Revisa los planos en ./04_DISENO_HIDROSANITARIO y escribe en ./hallazgos.xlsx
@@ -71,9 +83,17 @@ python scripts/escribir_hallazgos.py hallazgos.json ruta/al/formulario.xlsx
 # opciones: --dry-run (no guarda)   --fecha AAAA-MM-DD
 ```
 
+La ruta del Excel es obligatoria. Si el archivo **no existe**, el script copia la plantilla
+a esa ruta (creando las carpetas necesarias) y escribe sobre la copia; si **ya existe**,
+hace *append* continuando la numeración de IDs. El guardado es atómico: si falla a mitad de
+camino, el archivo original queda intacto.
+
 El JSON es una lista de objetos con las claves: `disciplina`, `hallazgo`, `ubicacion`,
 `severidad`, `referencia_normativa`, `riesgo`, `justificacion_tecnica`, `accion_correctiva`,
 `requiere_validacion`, `plano_referencia`.
+
+Códigos de salida: `0` OK · `2` error de permisos · `3` error de entrada · `4` falta una
+dependencia.
 
 ## Esquema del formulario de hallazgos
 
@@ -95,13 +115,23 @@ El JSON es una lista de objetos con las claves: `disciplina`, `hallazgo`, `ubica
 
 El encabezado está en la **fila 4** y los datos empiezan en la **fila 5**.
 
-## Nota para Windows (Controlled Folder Access)
+## Solución de problemas en Windows
 
-Si la escritura al Excel falla con "Acceso denegado", el archivo probablemente está en una
-carpeta protegida por la protección anti-ransomware de Windows Defender (Documentos,
-Escritorio, etc.). Trabaja sobre una copia en una carpeta no protegida, autoriza `python.exe`
-en *Seguridad de Windows → Protección contra ransomware → Permitir una app*, o mueve el
-proyecto fuera de esas carpetas.
+Si la escritura al Excel falla, el script se detiene con código `2` y un mensaje que explica
+la causa y los pasos a seguir — **no genera una salida alternativa ni escribe en otra ruta**.
+El archivo destino queda intacto y ningún hallazgo se pierde a medias.
+
+Las dos causas habituales:
+
+1. **El Excel está abierto.** El script detecta el archivo de bloqueo `~$archivo.xlsx` que
+   crea Excel y te lo dice directamente. Cierra el libro y reintenta.
+2. **Acceso controlado a carpetas** (protección anti-ransomware de Windows Defender), típico
+   si el Excel está en Escritorio, Documentos o Imágenes. Autoriza tu `python.exe` en
+   *Seguridad de Windows → Protección contra virus y amenazas → Protección contra ransomware
+   → Permitir una app a través del acceso controlado* (el mensaje de error incluye la ruta
+   exacta de tu intérprete), o usa una ruta destino fuera de esas carpetas.
+
+También puede fallar si la carpeta es de solo lectura o está en OneDrive sin sincronizar.
 
 ## Roadmap
 

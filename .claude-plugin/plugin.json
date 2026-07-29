@@ -1,6 +1,6 @@
 {
   "name": "revisor-planos",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agente revisor técnico de planos de ingeniería. Identifica hallazgos según reglas y normativa colombiana y los registra en un formulario Excel. Arranca con diseños hidrosanitarios y evolucionará a otras disciplinas y a coordinación inter-disciplinaria.",
   "author": {
     "name": "Camila",
@@ -10,6 +10,7 @@
   "homepage": "https://github.com/camilaco-12/revisor-planos",
   "repository": "https://github.com/camilaco-12/revisor-planos",
   "license": "MIT",
+  "hooks": "./hooks/hooks.json",
   "keywords": [
     "ingenieria",
     "hidrosanitario",
