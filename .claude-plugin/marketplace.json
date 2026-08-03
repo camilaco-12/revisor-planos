@@ -14,7 +14,7 @@
       "name": "revisor-planos",
       "source": "./",
       "description": "Agente revisor técnico de planos hidrosanitarios que identifica hallazgos y los registra en Excel.",
-      "version": "0.1.0"
+      "version": "0.3.0"
     }
   ]
 }

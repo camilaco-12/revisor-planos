@@ -4,6 +4,26 @@ Todos los cambios notables de este plugin se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-08-03
+### Añadido
+- Columna `nivel_confianza` (Alta/Media/Baja) en el esquema de hallazgos, separada de la
+  severidad: la severidad mide qué tan grave es el hallazgo y la confianza qué tan seguro
+  está el agente de que sea real. Es obligatoria y se valida antes de tocar el disco.
+- Verificación del encabezado (fila 4) antes de escribir: un Excel con el esquema anterior
+  se rechaza en vez de dejar cada dato en la columna equivocada.
+- Script `migrar_esquema.py` para migrar archivos del esquema v1 al v2 conservando los
+  hallazgos, con respaldo `.v1.bak.xlsx`. La conversión es conservadora: los hallazgos con
+  `requiere_validacion = TRUE` pasan a confianza `Baja` y los `FALSE` quedan vacíos.
+- Listas desplegables en la plantilla para disciplina, severidad, nivel de confianza y estado.
+- Desglose por nivel de confianza en el resumen que imprime `escribir_hallazgos.py`.
+
+### Cambiado
+- Esquema de columnas v2: `nivel_confianza` entra en la columna F y `estado` se desplaza a
+  la M. `estado` es de seguimiento manual: las filas nuevas siempre nacen en "Pendiente".
+
+### Eliminado
+- Campo booleano `requiere_validacion`, reemplazado por `nivel_confianza`.
+
 ## [0.2.0] - 2026-07-28
 ### Añadido
 - `escribir_hallazgos.py` crea el Excel destino desde la plantilla cuando no existe,
