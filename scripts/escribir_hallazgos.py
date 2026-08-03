@@ -1,26 +1,29 @@
 """Escribe hallazgos hidrosanitarios en el Excel del proyecto (append).
 
-Lee un JSON (lista de objetos con las 9 claves del esquema + 'plano_referencia')
+Lee un JSON (lista de objetos con las 10 claves del esquema + 'plano_referencia')
 y agrega una fila por hallazgo en la hoja 'Hallazgos hidrosanitarios' del Excel
 destino, sin sobrescribir filas existentes.
 
 Si el Excel destino no existe, se crea automaticamente copiando la plantilla
 templates/hallazgos_hidrosanitario.xlsx del plugin.
 
-Mapeo de columnas (encabezado en la fila 4, datos desde la fila 5):
+Mapeo de columnas del esquema v2 (encabezado en la fila 4, datos desde la fila 5):
     A  ID                     -> consecutivo, continua el maximo existente
     B  disciplina
     C  hallazgo
     D  ubicacion
-    E  severidad
-    F  referencia_normativa
-    G  riesgo
-    H  justificacion_tecnica
-    I  accion_correctiva
-    J  requiere_validacion    -> TRUE / FALSE
-    K  estado                 -> por defecto 'Pendiente'
-    L  plano_referencia
-    M  fecha_deteccion        -> por defecto la fecha de hoy
+    E  severidad              -> que tan grave es el hallazgo si es real
+    F  nivel_confianza        -> Alta / Media / Baja (seguridad del agente)
+    G  referencia_normativa
+    H  riesgo
+    I  justificacion_tecnica
+    J  accion_correctiva
+    K  plano_referencia
+    L  fecha_deteccion        -> por defecto la fecha de hoy
+    M  estado                 -> seguimiento MANUAL; siempre se escribe 'Pendiente'
+
+Los archivos con el esquema v1 (con 'requiere_validacion' y 'estado' en K) se
+rechazan antes de escribir; migralos con scripts/migrar_esquema.py.
 
 Uso:
     python escribir_hallazgos.py <ruta_json> <ruta_xlsx> [--fecha AAAA-MM-DD] [--dry-run]
@@ -28,7 +31,7 @@ Uso:
 Codigos de salida:
     0  OK
     2  error de permisos / archivo en uso (mensaje accionable en stderr)
-    3  error de entrada (JSON invalido, plantilla ausente, hoja inexistente)
+    3  error de entrada (JSON invalido, plantilla ausente, hoja o esquema incorrecto)
     4  falta una dependencia de Python
 """
 import argparse
@@ -61,27 +64,78 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 RAIZ_PLUGIN = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(DIR)
 PLANTILLA = os.path.join(RAIZ_PLUGIN, "templates", "hallazgos_hidrosanitario.xlsx")
 
-# columna (indice 1-based) -> clave del JSON
+# Encabezado esperado en la fila 4, en orden (columna = indice + 1).
+ESQUEMA = [
+    "ID",
+    "disciplina",
+    "hallazgo",
+    "ubicacion",
+    "severidad",
+    "nivel_confianza",
+    "referencia_normativa",
+    "riesgo",
+    "justificacion_tecnica",
+    "accion_correctiva",
+    "plano_referencia",
+    "fecha_deteccion",
+    "estado",
+]
+
+# Esquema anterior, solo para reconocerlo y dar un mensaje util.
+ESQUEMA_V1 = [
+    "ID",
+    "disciplina",
+    "hallazgo",
+    "ubicacion",
+    "severidad",
+    "referencia_normativa",
+    "riesgo",
+    "justificacion_tecnica",
+    "accion_correctiva",
+    "requiere_validacion",
+    "estado",
+    "plano_referencia",
+    "fecha_deteccion",
+]
+
+# columna (indice 1-based) -> clave del JSON que aporta el agente
 CAMPOS = {
     2: "disciplina",
     3: "hallazgo",
     4: "ubicacion",
     5: "severidad",
-    6: "referencia_normativa",
-    7: "riesgo",
-    8: "justificacion_tecnica",
-    9: "accion_correctiva",
+    6: "nivel_confianza",
+    7: "referencia_normativa",
+    8: "riesgo",
+    9: "justificacion_tecnica",
+    10: "accion_correctiva",
 }
+
+COL_PLANO = 11
+COL_FECHA = 12
+COL_ESTADO = 13
+
+ESTADO_INICIAL = "Pendiente"
+NIVELES_CONFIANZA = ("Alta", "Media", "Baja")
 
 
 class ErrorEntrada(Exception):
     """Problema con los datos o rutas de entrada; mensaje ya legible."""
 
 
-def bool_txt(valor):
-    if isinstance(valor, bool):
-        return "TRUE" if valor else "FALSE"
-    return "TRUE" if str(valor).strip().lower() in ("true", "1", "si", "sí") else "FALSE"
+def normalizar_confianza(valor):
+    """'  alta ' -> 'Alta'. Devuelve None si no es un nivel valido.
+
+    Se toleran mayusculas/minusculas y espacios sobrantes; cualquier otro valor
+    (incluido vacio o ausente) se rechaza, nunca se adivina.
+    """
+    if valor is None:
+        return None
+    texto = str(valor).strip()
+    for nivel in NIVELES_CONFIANZA:
+        if texto.lower() == nivel.lower():
+            return nivel
+    return None
 
 
 def excel_abierto(ruta):
@@ -150,6 +204,90 @@ def asegurar_destino(ruta_xlsx, dry_run=False):
     return True
 
 
+def verificar_esquema(ws, ruta_xlsx):
+    """Compara la fila 4 con el esquema v2 y aborta si no coincide.
+
+    Sin esta comprobacion, un Excel del esquema v1 (mismo numero de columnas,
+    distinto orden) aceptaria la escritura y dejaria cada dato en la columna
+    equivocada, en silencio.
+    """
+    encontrado = [ws.cell(FILA_ENCABEZADO, c).value for c in range(1, len(ESQUEMA) + 1)]
+    encontrado = [("" if v is None else str(v).strip()) for v in encontrado]
+    if encontrado == ESQUEMA:
+        return
+
+    lineas = [
+        "El Excel destino no usa el esquema de columnas actual (v2).",
+        f"  Ruta: {os.path.abspath(ruta_xlsx)}",
+        "",
+    ]
+    if encontrado == ESQUEMA_V1:
+        lineas += [
+            "Es un archivo del esquema ANTERIOR (v1): tiene 'requiere_validacion' y",
+            "'estado' en la columna K. Escribir sobre el dejaria cada dato en la",
+            "columna equivocada, asi que no se escribio nada.",
+            "",
+            "Migralo conservando los hallazgos ya registrados:",
+            f'  python "{os.path.join(RAIZ_PLUGIN, "scripts", "migrar_esquema.py")}" '
+            f'"{os.path.abspath(ruta_xlsx)}"',
+        ]
+    else:
+        diferencias = [
+            f"    columna {chr(64 + i)}: se esperaba '{esp}' y hay '{hay}'"
+            for i, (esp, hay) in enumerate(zip(ESQUEMA, encontrado), start=1)
+            if esp != hay
+        ]
+        lineas += ["Diferencias en la fila 4:"] + diferencias + [
+            "",
+            "Usa un Excel generado desde la plantilla del plugin, o corrige el",
+            "encabezado para que coincida exactamente con el esquema.",
+        ]
+    lineas += ["", "NO se escribio ningun hallazgo. El archivo destino quedo intacto."]
+    raise ErrorEntrada("\n".join(lineas))
+
+
+def validar_hallazgos(hallazgos):
+    """Normaliza 'nivel_confianza' in-place; acumula todos los errores y aborta.
+
+    Se valida antes de tocar el disco: si algo esta mal, no se crea ni se
+    modifica ningun archivo.
+    """
+    errores = []
+    for i, h in enumerate(hallazgos, start=1):
+        if not isinstance(h, dict):
+            errores.append(f"  hallazgo #{i}: se esperaba un objeto JSON, hay {type(h).__name__}")
+            continue
+        nivel = normalizar_confianza(h.get("nivel_confianza"))
+        if nivel is None:
+            crudo = h.get("nivel_confianza")
+            detalle = "falta la clave" if crudo is None else f"valor invalido: {crudo!r}"
+            errores.append(f"  hallazgo #{i}: 'nivel_confianza' {detalle}")
+        else:
+            h["nivel_confianza"] = nivel
+
+    if errores:
+        raise ErrorEntrada(
+            "Hay hallazgos que no cumplen el esquema.\n"
+            + "\n".join(errores)
+            + "\n\n'nivel_confianza' es obligatorio y debe ser exactamente uno de: "
+            + ", ".join(NIVELES_CONFIANZA)
+            + ".\n(se aceptan mayusculas/minusculas y espacios sobrantes)\n"
+            "  Alta  = evidencia directa y clara en el plano\n"
+            "  Media = evidencia parcial o depende de contexto adicional\n"
+            "  Baja  = interpretacion o supuesto del agente\n\n"
+            "NO se escribio ningun hallazgo."
+        )
+
+
+def desglose_confianza(hallazgos):
+    conteo = {nivel: 0 for nivel in NIVELES_CONFIANZA}
+    for h in hallazgos:
+        conteo[h["nivel_confianza"]] += 1
+    return "Nivel de confianza: " + "  |  ".join(
+        f"{nivel}: {conteo[nivel]}" for nivel in NIVELES_CONFIANZA
+    )
+
+
 def abrir_hoja(ruta_xlsx):
     wb = load_workbook(ruta_xlsx)
     if HOJA not in wb.sheetnames:
@@ -159,7 +297,9 @@ def abrir_hoja(ruta_xlsx):
             f"  Hojas encontradas: {', '.join(wb.sheetnames)}\n"
             "Usa un Excel generado desde la plantilla del plugin."
         )
-    return wb, wb[HOJA]
+    ws = wb[HOJA]
+    verificar_esquema(ws, ruta_xlsx)
+    return wb, ws
 
 
 def ultima_fila_con_datos(ws):
@@ -231,6 +371,7 @@ def main():
 
     try:
         hallazgos = cargar_hallazgos(args.json)
+        validar_hallazgos(hallazgos)
         creado = asegurar_destino(args.xlsx, dry_run=args.dry_run)
     except ErrorEntrada as err:
         sys.stderr.write(f"ERROR: {err}\n")
@@ -249,6 +390,7 @@ def main():
     if creado and args.dry_run:
         print(f"DRY-RUN: se crearia desde la plantilla: {os.path.abspath(args.xlsx)}")
         print(f"Hallazgos a escribir: {len(hallazgos)}")
+        print(desglose_confianza(hallazgos))
         print(f"Primera fila nueva: {FILA_INICIO_DATOS}  |  ID inicial: 1")
         print("DRY-RUN: no se guardo el archivo.")
         return SALIDA_OK
@@ -273,14 +415,16 @@ def main():
         ws.cell(fila, 1, siguiente_id + i)
         for col, clave in CAMPOS.items():
             ws.cell(fila, col, h.get(clave, ""))
-        ws.cell(fila, 10, bool_txt(h.get("requiere_validacion", False)))
-        ws.cell(fila, 11, h.get("estado", "Pendiente"))
-        ws.cell(fila, 12, h.get("plano_referencia", ""))
-        ws.cell(fila, 13, h.get("fecha_deteccion", args.fecha))
+        ws.cell(fila, COL_PLANO, h.get("plano_referencia", ""))
+        ws.cell(fila, COL_FECHA, h.get("fecha_deteccion", args.fecha))
+        # 'estado' es seguimiento manual del usuario: las filas nuevas siempre
+        # nacen en 'Pendiente', se ignora cualquier valor que traiga el JSON.
+        ws.cell(fila, COL_ESTADO, ESTADO_INICIAL)
         fila += 1
 
     resumen = (
         f"Hallazgos a escribir: {len(hallazgos)}\n"
+        f"{desglose_confianza(hallazgos)}\n"
         f"Primera fila nueva: {ultima + 1}  |  ID inicial: {siguiente_id}"
     )
     if args.dry_run:
