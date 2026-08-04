@@ -1,0 +1,28 @@
+{
+  "name": "revisor-estructural",
+  "version": "0.1.0",
+  "description": "Agente revisor técnico de diseños estructurales en Colombia bajo la NSR-10. Revisa planos de cimentación, entrepisos, cubiertas y despieces, los cruza con las memorias de cálculo cuando existen, y registra los hallazgos en un formulario Excel compatible con el del revisor hidrosanitario.",
+  "author": {
+    "name": "Camila",
+    "email": "ycclavijoo@ufpso.edu.co",
+    "url": "https://github.com/camilaco-12"
+  },
+  "homepage": "https://github.com/camilaco-12/revisor-estructural",
+  "repository": "https://github.com/camilaco-12/revisor-estructural",
+  "license": "MIT",
+  "hooks": "./hooks/hooks.json",
+  "keywords": [
+    "nsr-10",
+    "estructural",
+    "revision-de-planos",
+    "concreto-reforzado",
+    "sismo-resistente",
+    "cimentacion",
+    "despieces",
+    "memorias-de-calculo",
+    "colombia",
+    "hallazgos",
+    "geotecnia",
+    "aec"
+  ]
+}

@@ -1,8 +1,39 @@
 # Changelog
 
-Todos los cambios notables de este plugin se documentan aquí.
+Todos los cambios notables de este repositorio se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
+
+> A partir de la 0.4.0 este número versiona el **repositorio/marketplace**, no un plugin
+> individual. Cada plugin lleva su propia versión en su `plugin.json`.
+
+## [0.4.0] - 2026-08-03
+### Añadido
+- Plugin **`revisor-estructural`** (v0.1.0): agente revisor técnico de diseños estructurales
+  en Colombia bajo la NSR-10. Revisa planos de cimentación, entrepisos, cubiertas y despieces
+  de vigas, columnas y muros, los cruza con las memorias de cálculo y el estudio geotécnico
+  cuando existen, y distingue explícitamente entre "se verificó y cumple", "se verificó y no
+  cumple" y "no se pudo verificar con la documentación aportada".
+- Comando `/revisar-estructural` que dispara el flujo de revisión estructural.
+- Plantilla `hallazgos_estructural.xlsx` con el **mismo esquema v2** que la hidrosanitaria, a
+  propósito: las dos tablas se pueden consolidar sin transformar nada para la coordinación
+  inter-disciplinaria.
+- `scripts/crear_plantilla.py` en el plugin estructural, para regenerar la plantilla desde cero.
+
+### Cambiado
+- **Estructura de monorepo-marketplace**: cada plugin vive ahora en `plugins/<nombre>/` con su
+  propio `.claude-plugin/plugin.json`. En la raíz queda solo el catálogo
+  `.claude-plugin/marketplace.json`, que pasa a listar dos entradas con `source` apuntando a
+  cada subcarpeta. Los hooks y scripts ya resolvían sus rutas con `${CLAUDE_PLUGIN_ROOT}`, así
+  que el movimiento no los afecta.
+- El plugin hidrosanitario **conserva su nombre `revisor-planos`** para no romper las
+  instalaciones existentes; sigue en su versión 0.3.0.
+- README reescrito como documentación del marketplace de dos plugins.
+
+### Corregido
+- La tabla del esquema de hallazgos en el README seguía documentando el esquema v1
+  (`requiere_validacion` en J, `estado` en K); ahora refleja el v2 que los scripts escriben
+  desde la 0.3.0 (`nivel_confianza` en F, `estado` en M).
 
 ## [0.3.0] - 2026-08-03
 ### Añadido

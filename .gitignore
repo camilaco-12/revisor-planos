@@ -12,7 +12,7 @@ venv/
 # Salidas de trabajo (no versionar hallazgos reales de proyectos)
 /salidas/
 hallazgos_*.json
-!templates/hallazgos_hidrosanitario.xlsx
+!plugins/*/templates/hallazgos_*.xlsx
 
 # Sistema
 .DS_Store

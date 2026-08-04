@@ -7,14 +7,20 @@
   },
   "metadata": {
     "description": "Marketplace de agentes revisores de planos de ingeniería.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "revisor-planos",
-      "source": "./",
+      "source": "./plugins/revisor-planos",
       "description": "Agente revisor técnico de planos hidrosanitarios que identifica hallazgos y los registra en Excel.",
       "version": "0.3.0"
+    },
+    {
+      "name": "revisor-estructural",
+      "source": "./plugins/revisor-estructural",
+      "description": "Agente revisor técnico de diseños estructurales en Colombia bajo la NSR-10: cimentación, entrepisos, cubiertas y despieces, cruzados con las memorias de cálculo, con hallazgos registrados en Excel.",
+      "version": "0.1.0"
     }
   ]
 }
